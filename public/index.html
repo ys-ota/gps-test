@@ -518,7 +518,12 @@ if (Notification.permission === 'default') Notification.requestPermission();
 function fetchAll() {
   fetch('/api/devices').then(r=>r.json()).then(list=>list.forEach(updateDevice)).catch(()=>{});
   fetch('/api/geofences').then(r=>r.json()).then(list=>list.forEach(gf=>applyGeofence('add',gf))).catch(()=>{});
-  fetch('/api/notifications').then(r=>r.json()).then(list=>{ list.forEach(n=>notifEntries.push(n)); renderNotifList(); }).catch(()=>{});
+  fetch('/api/notifications').then(r=>r.json()).then(list=>{
+  const existing = new Set(notifEntries.map(n=>n.id));
+  list.forEach(n=>{ if(!existing.has(n.id)) notifEntries.push(n); });
+  notifEntries.sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp));
+  renderNotifList();
+}).catch(()=>{});
 }
 fetchAll();
 

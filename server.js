@@ -9,6 +9,7 @@ const devices = {};
 const tracks = {};
 const geofences = {}; // id -> geofence
 const geofenceStates = {}; // deviceId -> { geofenceId -> 'inside'|'outside' }
+const lastNotifTime = {}; // deviceId+geofenceId -> timestamp (重複防止)
 const notifications = [];
 const sseClients = [];
 
@@ -50,6 +51,12 @@ function checkGeofences(device) {
         }
 
         if (type) {
+            // 同一端末・同一ジオフェンスで60秒以内の重複通知を防ぐ
+            const key = `${device.id}__${gf.id}__${type}`;
+            const now = Date.now();
+            if (lastNotifTime[key] && now - lastNotifTime[key] < 60000) return;
+            lastNotifTime[key] = now;
+
             const notif = {
                 id: crypto.randomUUID(),
                 type,
