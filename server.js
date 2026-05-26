@@ -14,6 +14,12 @@ const sseClients = [];
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use((req, res, next) => {
+    if (req.path === '/' || req.path.endsWith('.html')) {
+        res.setHeader('Cache-Control', 'no-store');
+    }
+    next();
+});
 app.use(express.static(path.join(__dirname, 'public')));
 
 function calcDistance(lat1, lon1, lat2, lon2) {
