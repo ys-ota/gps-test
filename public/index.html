@@ -521,9 +521,13 @@ function fetchAll() {
 }
 fetchAll();
 
-// SSE未接続時のポーリングフォールバック（30秒ごと）
+// SSE未接続時のポーリングフォールバック
 let sseConnected = false;
-setInterval(() => { if (!sseConnected) fetchAll(); }, 30000);
+setInterval(() => {
+  if (!sseConnected) {
+    fetch('/api/devices').then(r=>r.json()).then(list=>list.forEach(updateDevice)).catch(()=>{});
+  }
+}, 5000); // 5秒ごとにデバイス情報を取得
 
 // ---- SSE ----
 let es;
@@ -544,7 +548,7 @@ function connectSSE() {
     document.getElementById('statusDot').classList.remove('active');
     document.getElementById('connStatus').textContent = '再接続中...';
     document.getElementById('connStatus').style.color = '#ffc107';
-    es.close(); setTimeout(connectSSE, 5000);
+    es.close(); setTimeout(connectSSE, 3000);
   };
 }
 connectSSE();
