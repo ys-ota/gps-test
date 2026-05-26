@@ -555,7 +555,14 @@ function connectSSE() {
     document.getElementById('statusDot').classList.add('active');
     document.getElementById('connStatus').textContent = '接続中';
     document.getElementById('connStatus').style.color = '#4caf50';
-    fetchAll(); // 接続時に最新データを取得
+    fetchAll();
+    // 軌跡を再取得して正しく描画
+    Object.keys(devices).forEach(id => {
+      fetch(`/api/tracks/${encodeURIComponent(id)}`).then(r=>r.json()).then(pts => {
+        if (polylines[id]) { map.removeLayer(polylines[id]); delete polylines[id]; }
+        if (pts.length > 1) polylines[id] = L.polyline(pts, {color:'#4a90e2',weight:3,opacity:.8}).addTo(map);
+      });
+    });
   };
   es.onerror = () => {
     sseConnected = false;
