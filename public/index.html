@@ -331,6 +331,8 @@ function popupContent(d) { return `<b>${d.id}</b><br>速度: ${d.speed}km/h<br>�
 
 // ---- 受信ログ ----
 function addLog(d) {
+  // 同じタイムスタンプ・同じ端末は追加しない
+  if (logEntries.length && logEntries[0].timestamp === d.timestamp && logEntries[0].id === d.id) return;
   logEntries.unshift(d);
   if (logEntries.length > 200) logEntries.pop();
   renderLog();
@@ -516,7 +518,13 @@ if (Notification.permission === 'default') Notification.requestPermission();
 
 // ---- 起動時データ取得 ----
 function fetchAll() {
-  fetch('/api/devices').then(r=>r.json()).then(list=>list.forEach(updateDevice)).catch(()=>{});
+  fetch('/api/devices').then(r=>r.json()).then(list=>list.forEach(d => {
+    // 同じタイムスタンプなら再追加しない
+    if (devices[d.id] && devices[d.id].timestamp === d.timestamp) {
+      renderDeviceList(); updateMarker(d); return;
+    }
+    updateDevice(d);
+  })).catch(()=>{});
   fetch('/api/geofences').then(r=>r.json()).then(list=>list.forEach(gf=>applyGeofence('add',gf))).catch(()=>{});
   fetch('/api/notifications').then(r=>r.json()).then(list=>{
   const existing = new Set(notifEntries.map(n=>n.id));
