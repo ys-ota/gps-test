@@ -514,9 +514,16 @@ function clearNotifications() { notifEntries.length=0; renderNotifList(); unread
 if (Notification.permission === 'default') Notification.requestPermission();
 
 // ---- 起動時データ取得 ----
-fetch('/api/devices').then(r=>r.json()).then(list=>list.forEach(updateDevice));
-fetch('/api/geofences').then(r=>r.json()).then(list=>list.forEach(gf=>applyGeofence('add',gf)));
-fetch('/api/notifications').then(r=>r.json()).then(list=>{ list.forEach(n=>notifEntries.push(n)); renderNotifList(); });
+function fetchAll() {
+  fetch('/api/devices').then(r=>r.json()).then(list=>list.forEach(updateDevice)).catch(()=>{});
+  fetch('/api/geofences').then(r=>r.json()).then(list=>list.forEach(gf=>applyGeofence('add',gf))).catch(()=>{});
+  fetch('/api/notifications').then(r=>r.json()).then(list=>{ list.forEach(n=>notifEntries.push(n)); renderNotifList(); }).catch(()=>{});
+}
+fetchAll();
+
+// SSE未接続時のポーリングフォールバック（30秒ごと）
+let sseConnected = false;
+setInterval(() => { if (!sseConnected) fetchAll(); }, 30000);
 
 // ---- SSE ----
 let es;
@@ -526,15 +533,18 @@ function connectSSE() {
   es.addEventListener('notification', e => addNotification(JSON.parse(e.data)));
   es.addEventListener('geofence', e => { const d=JSON.parse(e.data); applyGeofence(d.action, d.action==='delete'?d.id:d.geofence); });
   es.onopen = () => {
+    sseConnected = true;
     document.getElementById('statusDot').classList.add('active');
     document.getElementById('connStatus').textContent = '接続中';
     document.getElementById('connStatus').style.color = '#4caf50';
+    fetchAll(); // 接続時に最新データを取得
   };
   es.onerror = () => {
+    sseConnected = false;
     document.getElementById('statusDot').classList.remove('active');
     document.getElementById('connStatus').textContent = '再接続中...';
     document.getElementById('connStatus').style.color = '#ffc107';
-    es.close(); setTimeout(connectSSE, 3000);
+    es.close(); setTimeout(connectSSE, 5000);
   };
 }
 connectSSE();
