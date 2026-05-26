@@ -7,54 +7,116 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f1117; color: #e0e0e0; height: 100vh; display: flex; flex-direction: column; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f1117; color: #e0e0e0; height: 100vh; display: flex; flex-direction: column; }
 
-  header { background: #1a1d27; padding: 12px 20px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #2d3045; }
-  header h1 { font-size: 18px; font-weight: 600; color: #fff; }
-  .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #555; flex-shrink: 0; }
-  .status-dot.active { background: #4caf50; box-shadow: 0 0 6px #4caf50; animation: pulse 2s infinite; }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+header { background: #1a1d27; padding: 10px 16px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #2d3045; flex-shrink: 0; }
+header h1 { font-size: 16px; font-weight: 600; color: #fff; }
+.status-dot { width: 9px; height: 9px; border-radius: 50%; background: #555; flex-shrink: 0; }
+.status-dot.active { background: #4caf50; box-shadow: 0 0 5px #4caf50; animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1}50%{opacity:.4} }
+#connStatus { font-size: 11px; }
+#lastUpdate { margin-left: auto; font-size: 11px; color: #555; }
 
-  .main { display: flex; flex: 1; overflow: hidden; }
+.main { display: flex; flex: 1; overflow: hidden; }
+#map { flex: 1; }
 
-  #map { flex: 1; }
+.sidebar { width: 340px; background: #1a1d27; display: flex; flex-direction: column; border-left: 1px solid #2d3045; overflow: hidden; }
 
-  .sidebar { width: 320px; background: #1a1d27; overflow-y: hidden; border-left: 1px solid #2d3045; display: flex; flex-direction: column; }
-  .sidebar-title { padding: 14px 16px; font-size: 13px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: .05em; border-bottom: 1px solid #2d3045; }
+/* タブ */
+.tabs { display: flex; border-bottom: 1px solid #2d3045; flex-shrink: 0; }
+.tab { flex: 1; padding: 10px 4px; text-align: center; font-size: 12px; font-weight: 600; color: #666; cursor: pointer; border-bottom: 2px solid transparent; transition: all .15s; position: relative; }
+.tab:hover { color: #aaa; }
+.tab.active { color: #4a90e2; border-bottom-color: #4a90e2; }
+.tab-badge { position: absolute; top: 4px; right: 8px; background: #f44336; color: #fff; font-size: 10px; border-radius: 8px; padding: 1px 5px; min-width: 16px; text-align: center; }
 
-  .device-card { padding: 14px 16px; border-bottom: 1px solid #2d3045; cursor: pointer; transition: background .15s; }
-  .device-card:hover { background: #22253a; }
-  .device-card.selected { background: #1e2f4a; border-left: 3px solid #4a90e2; }
-  .device-id { font-size: 15px; font-weight: 600; color: #fff; margin-bottom: 6px; }
-  .device-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; font-size: 12px; color: #999; }
-  .device-meta span { display: flex; align-items: center; gap: 4px; }
-  .val { color: #ccc; font-weight: 500; }
-  .badge { display: inline-block; padding: 1px 6px; border-radius: 10px; font-size: 11px; font-weight: 600; margin-left: 6px; }
-  .badge.green { background: #1b3a2a; color: #4caf50; }
-  .badge.yellow { background: #3a2e1b; color: #ffc107; }
-  .badge.red { background: #3a1b1b; color: #f44336; }
-  .time { font-size: 11px; color: #555; margin-top: 6px; }
+.tab-content { display: none; flex: 1; flex-direction: column; overflow: hidden; }
+.tab-content.active { display: flex; }
 
-  #no-data { padding: 40px 20px; text-align: center; color: #444; font-size: 14px; }
+/* 端末タブ */
+.device-card { padding: 12px 14px; border-bottom: 1px solid #2d3045; cursor: pointer; transition: background .15s; }
+.device-card:hover { background: #22253a; }
+.device-card.selected { background: #1e2f4a; border-left: 3px solid #4a90e2; }
+.device-id { font-size: 14px; font-weight: 600; color: #fff; margin-bottom: 5px; }
+.device-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 10px; font-size: 12px; color: #999; }
+.val { color: #ccc; font-weight: 500; }
+.badge { display: inline-block; padding: 1px 6px; border-radius: 10px; font-size: 11px; font-weight: 600; margin-left: 5px; }
+.badge.green { background: #1b3a2a; color: #4caf50; }
+.badge.yellow { background: #3a2e1b; color: #ffc107; }
+.badge.red { background: #3a1b1b; color: #f44336; }
+.ts { font-size: 11px; color: #555; margin-top: 5px; }
 
-  .detail-panel { background: #12151f; border-top: 1px solid #2d3045; padding: 16px; }
-  .detail-panel h3 { font-size: 13px; color: #888; margin-bottom: 10px; text-transform: uppercase; letter-spacing: .05em; }
-  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .detail-item { background: #1a1d27; border-radius: 6px; padding: 8px 10px; }
-  .detail-label { font-size: 11px; color: #666; margin-bottom: 2px; }
-  .detail-value { font-size: 14px; color: #e0e0e0; font-weight: 500; }
+.detail-panel { background: #12151f; border-top: 1px solid #2d3045; padding: 14px; flex-shrink: 0; }
+.detail-panel h3 { font-size: 12px; color: #888; margin-bottom: 8px; text-transform: uppercase; letter-spacing: .05em; }
+.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.detail-item { background: #1a1d27; border-radius: 5px; padding: 7px 9px; }
+.detail-label { font-size: 11px; color: #666; margin-bottom: 2px; }
+.detail-value { font-size: 13px; color: #e0e0e0; font-weight: 500; }
 
-  .log-panel { border-top: 1px solid #2d3045; display: flex; flex-direction: column; flex: 1; min-height: 0; }
-  .log-header { padding: 10px 16px; font-size: 13px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: .05em; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
-  .log-clear { font-size: 11px; color: #555; cursor: pointer; padding: 2px 8px; border: 1px solid #333; border-radius: 4px; background: none; }
-  .log-clear:hover { color: #aaa; border-color: #555; }
-  .log-list { overflow-y: auto; flex: 1; }
-  .log-row { padding: 6px 16px; border-bottom: 1px solid #1e2130; font-size: 12px; display: grid; grid-template-columns: 70px 1fr; gap: 8px; cursor: pointer; }
-  .log-row:hover { background: #1e2235; }
-  .log-time { color: #4a90e2; font-variant-numeric: tabular-nums; }
-  .log-coords { color: #999; }
-  .log-speed { color: #666; font-size: 11px; }
+.log-panel { border-top: 1px solid #2d3045; display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.log-header { padding: 8px 14px; font-size: 12px; font-weight: 600; color: #888; text-transform: uppercase; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+.btn-sm { font-size: 11px; color: #555; cursor: pointer; padding: 2px 8px; border: 1px solid #333; border-radius: 4px; background: none; }
+.btn-sm:hover { color: #aaa; border-color: #555; }
+.log-list { overflow-y: auto; flex: 1; }
+.log-row { padding: 5px 14px; border-bottom: 1px solid #1e2130; font-size: 12px; display: grid; grid-template-columns: 65px 1fr; gap: 8px; cursor: pointer; }
+.log-row:hover { background: #1e2235; }
+.log-time { color: #4a90e2; font-variant-numeric: tabular-nums; }
+.log-coords { color: #999; }
+.log-speed { color: #666; font-size: 11px; }
+
+#no-data { padding: 30px 16px; text-align: center; color: #444; font-size: 13px; }
+
+/* ジオフェンスタブ */
+.gf-toolbar { padding: 10px 14px; border-bottom: 1px solid #2d3045; flex-shrink: 0; }
+.btn-primary { background: #4a90e2; color: #fff; border: none; padding: 7px 14px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; width: 100%; }
+.btn-primary:hover { background: #357abd; }
+.btn-primary.picking { background: #ff9800; }
+.gf-list { overflow-y: auto; flex: 1; }
+.gf-card { padding: 11px 14px; border-bottom: 1px solid #2d3045; }
+.gf-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.gf-name { font-size: 14px; font-weight: 600; color: #fff; flex: 1; }
+.gf-meta { font-size: 12px; color: #777; margin-bottom: 6px; }
+.gf-actions { display: flex; gap: 6px; }
+.btn-icon { background: none; border: 1px solid #333; color: #888; border-radius: 4px; padding: 3px 8px; font-size: 11px; cursor: pointer; }
+.btn-icon:hover { border-color: #555; color: #ccc; }
+.btn-icon.danger:hover { border-color: #f44336; color: #f44336; }
+.toggle { width: 34px; height: 18px; background: #333; border-radius: 9px; position: relative; cursor: pointer; flex-shrink: 0; transition: background .2s; }
+.toggle.on { background: #4caf50; }
+.toggle::after { content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; background: #fff; border-radius: 50%; transition: left .2s; }
+.toggle.on::after { left: 18px; }
+.notify-badges { display: flex; gap: 4px; }
+.nb { font-size: 10px; padding: 1px 5px; border-radius: 3px; }
+.nb.enter { background: #1b3a2a; color: #4caf50; }
+.nb.exit { background: #3a1b1b; color: #f44336; }
+.nb.off { background: #222; color: #555; text-decoration: line-through; }
+
+/* 通知タブ */
+.notif-list { overflow-y: auto; flex: 1; }
+.notif-row { padding: 10px 14px; border-bottom: 1px solid #2d3045; }
+.notif-type { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 600; margin-bottom: 4px; }
+.notif-type.enter { background: #1b3a2a; color: #4caf50; }
+.notif-type.exit { background: #3a1b1b; color: #f44336; }
+.notif-body { font-size: 13px; color: #ccc; }
+.notif-time { font-size: 11px; color: #555; margin-top: 3px; }
+
+/* モーダル */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+.modal-overlay.hidden { display: none; }
+.modal { background: #1a1d27; border: 1px solid #2d3045; border-radius: 10px; padding: 20px; width: 340px; max-width: 95vw; }
+.modal h2 { font-size: 16px; color: #fff; margin-bottom: 16px; }
+.form-group { margin-bottom: 14px; }
+.form-group label { display: block; font-size: 12px; color: #888; margin-bottom: 5px; }
+.form-group input[type=text], .form-group input[type=number] { width: 100%; background: #12151f; border: 1px solid #2d3045; color: #e0e0e0; padding: 8px 10px; border-radius: 6px; font-size: 14px; }
+.form-group input[type=range] { width: 100%; accent-color: #4a90e2; }
+.radius-display { text-align: right; font-size: 13px; color: #4a90e2; font-weight: 600; }
+.form-row { display: flex; gap: 12px; align-items: center; }
+.form-row label { font-size: 13px; color: #ccc; flex: 1; }
+.modal-footer { display: flex; gap: 8px; margin-top: 18px; }
+.btn-cancel { flex: 1; background: none; border: 1px solid #333; color: #888; padding: 9px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+.btn-cancel:hover { border-color: #555; color: #ccc; }
+.btn-save { flex: 2; background: #4a90e2; color: #fff; border: none; padding: 9px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; }
+.btn-save:hover { background: #357abd; }
+.coord-display { font-size: 12px; color: #4a90e2; margin-top: 4px; }
 </style>
 </head>
 <body>
@@ -62,25 +124,88 @@
 <header>
   <div class="status-dot" id="statusDot"></div>
   <h1>📍 GPS トラッカー</h1>
-  <span id="connStatus" style="font-size:12px;color:#ffc107">接続中...</span>
-  <span id="lastUpdate" style="margin-left:auto;font-size:12px;color:#555">データ待機中...</span>
+  <span id="connStatus" style="font-size:11px;color:#ffc107">接続中...</span>
+  <span id="lastUpdate"></span>
 </header>
 
 <div class="main">
   <div id="map"></div>
   <div class="sidebar">
-    <div class="sidebar-title">端末一覧</div>
-    <div id="deviceList"><div id="no-data">まだデータがありません<br><br>アプリから送信すると<br>ここに表示されます</div></div>
-    <div class="detail-panel" id="detailPanel" style="display:none">
-      <h3>詳細</h3>
-      <div class="detail-grid" id="detailGrid"></div>
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('devices')" id="tab-devices">端末</div>
+      <div class="tab" onclick="switchTab('geofences')" id="tab-geofences">ジオフェンス</div>
+      <div class="tab" onclick="switchTab('notifications')" id="tab-notifications">通知<span class="tab-badge hidden" id="notifBadge">0</span></div>
     </div>
-    <div class="log-panel">
-      <div class="log-header">
-        受信ログ
-        <button class="log-clear" onclick="clearLog()">クリア</button>
+
+    <!-- 端末タブ -->
+    <div class="tab-content active" id="content-devices">
+      <div id="deviceList" style="overflow-y:auto;flex:1"><div id="no-data">まだデータがありません<br><br>アプリから送信すると<br>ここに表示されます</div></div>
+      <div class="detail-panel" id="detailPanel" style="display:none">
+        <h3>詳細</h3>
+        <div class="detail-grid" id="detailGrid"></div>
       </div>
-      <div class="log-list" id="logList"></div>
+      <div class="log-panel">
+        <div class="log-header">受信ログ <button class="btn-sm" onclick="clearLog()">クリア</button></div>
+        <div class="log-list" id="logList"></div>
+      </div>
+    </div>
+
+    <!-- ジオフェンスタブ -->
+    <div class="tab-content" id="content-geofences">
+      <div class="gf-toolbar">
+        <button class="btn-primary" id="pickBtn" onclick="startPicking()">＋ 地図をタップして場所を選択</button>
+      </div>
+      <div class="gf-list" id="gfList"><div style="padding:30px 16px;text-align:center;color:#444;font-size:13px">ジオフェンスがありません</div></div>
+    </div>
+
+    <!-- 通知タブ -->
+    <div class="tab-content" id="content-notifications">
+      <div class="log-header" style="padding:10px 14px;font-size:12px;font-weight:600;color:#888;border-bottom:1px solid #2d3045;display:flex;justify-content:space-between">
+        通知ログ <button class="btn-sm" onclick="clearNotifications()">クリア</button>
+      </div>
+      <div class="notif-list" id="notifList"><div style="padding:30px 16px;text-align:center;color:#444;font-size:13px">通知はありません</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ジオフェンス作成/編集モーダル -->
+<div class="modal-overlay hidden" id="gfModal">
+  <div class="modal">
+    <h2 id="modalTitle">ジオフェンスを追加</h2>
+    <div class="form-group">
+      <label>名前</label>
+      <input type="text" id="gfName" placeholder="例: 自宅、会社">
+    </div>
+    <div class="form-group">
+      <label>場所</label>
+      <div class="coord-display" id="gfCoordDisplay">選択中...</div>
+    </div>
+    <div class="form-group">
+      <label>半径: <span id="radiusVal">100</span>m</label>
+      <input type="range" id="gfRadius" min="20" max="200" step="5" value="100" oninput="updateRadius()">
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:#555"><span>20m</span><span>200m</span></div>
+    </div>
+    <div class="form-group">
+      <div class="form-row">
+        <label>入域通知</label>
+        <div class="toggle on" id="toggleEnter" onclick="toggleSwitch('toggleEnter')"></div>
+      </div>
+    </div>
+    <div class="form-group">
+      <div class="form-row">
+        <label>出域通知</label>
+        <div class="toggle on" id="toggleExit" onclick="toggleSwitch('toggleExit')"></div>
+      </div>
+    </div>
+    <div class="form-group">
+      <div class="form-row">
+        <label>有効</label>
+        <div class="toggle on" id="toggleEnabled" onclick="toggleSwitch('toggleEnabled')"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal()">キャンセル</button>
+      <button class="btn-save" onclick="saveGeofence()">保存</button>
     </div>
   </div>
 </div>
@@ -91,56 +216,44 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '© OpenStreetMap contributors'
 }).addTo(map);
 
-const markers = {};
-const polylines = {};
-const devices = {};
-let selectedId = null;
+const markers = {}, polylines = {}, devices = {};
+const gfCircles = {}, gfData = {};
 const logEntries = [];
+const notifEntries = [];
+let selectedId = null;
+let picking = false;
+let editingGfId = null;
+let pendingLat = null, pendingLon = null;
+let tempMarker = null;
+let unreadNotif = 0;
 
-function addLog(d) {
-  logEntries.unshift(d); // 新しい順
-  if (logEntries.length > 200) logEntries.pop();
-  renderLog();
+// ---- タブ ----
+function switchTab(name) {
+  document.querySelectorAll('.tab, .tab-content').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.getElementById('content-' + name).classList.add('active');
+  if (name === 'notifications') { unreadNotif = 0; updateBadge(); }
 }
 
-function renderLog() {
-  const list = document.getElementById('logList');
-  list.innerHTML = logEntries.map(d => `
-    <div class="log-row" onclick="jumpToLog(${d.lat}, ${d.lon})">
-      <span class="log-time">${formatTime(d.timestamp)}</span>
-      <span>
-        <span class="log-coords">${d.lat.toFixed(5)}, ${d.lon.toFixed(5)}</span>
-        <span class="log-speed"> ${d.speed}km/h</span>
-      </span>
-    </div>`).join('');
+// ---- バッジ ----
+function updateBadge() {
+  const b = document.getElementById('notifBadge');
+  if (unreadNotif > 0) { b.textContent = unreadNotif; b.classList.remove('hidden'); }
+  else b.classList.add('hidden');
 }
 
-function jumpToLog(lat, lon) {
-  map.setView([lat, lon], 16);
-  // 一時マーカーで点滅
-  const m = L.circleMarker([lat, lon], { radius: 12, color: '#ffc107', fillOpacity: 0 }).addTo(map);
-  setTimeout(() => map.removeLayer(m), 2000);
+// ---- ユーティリティ ----
+function formatTime(iso) { return new Date(iso).toLocaleTimeString('ja-JP'); }
+function battBadge(b) {
+  if (b == null) return '';
+  const cls = b > 50 ? 'green' : b > 20 ? 'yellow' : 'red';
+  return `<span class="badge ${cls}">${b}%</span>`;
 }
 
-function clearLog() {
-  logEntries.length = 0;
-  renderLog();
-}
-
-function battBadge(batt) {
-  if (batt == null) return '';
-  const cls = batt > 50 ? 'green' : batt > 20 ? 'yellow' : 'red';
-  return `<span class="badge ${cls}">${batt}%</span>`;
-}
-
-function formatTime(iso) {
-  const d = new Date(iso);
-  return d.toLocaleTimeString('ja-JP');
-}
-
+// ---- 端末 ----
 function updateDevice(d) {
   devices[d.id] = d;
-  renderList();
+  renderDeviceList();
   updateMarker(d);
   if (selectedId === d.id) showDetail(d);
   addLog(d);
@@ -148,52 +261,39 @@ function updateDevice(d) {
   document.getElementById('lastUpdate').textContent = '最終受信: ' + formatTime(d.timestamp);
 }
 
-function renderList() {
+function renderDeviceList() {
   const list = document.getElementById('deviceList');
   const ids = Object.keys(devices);
-  if (ids.length === 0) return;
+  if (!ids.length) return;
   list.innerHTML = ids.map(id => {
     const d = devices[id];
-    const sel = id === selectedId ? ' selected' : '';
-    return `<div class="device-card${sel}" onclick="selectDevice('${id}')">
+    return `<div class="device-card${id===selectedId?' selected':''}" onclick="selectDevice('${id}')">
       <div class="device-id">📱 ${d.id}${battBadge(d.batt)}</div>
       <div class="device-meta">
         <span>緯度 <span class="val">${d.lat.toFixed(5)}</span></span>
         <span>経度 <span class="val">${d.lon.toFixed(5)}</span></span>
-        <span>速度 <span class="val">${d.speed} km/h</span></span>
-        ${d.altitude != null ? `<span>高度 <span class="val">${d.altitude.toFixed(0)}m</span></span>` : ''}
+        <span>速度 <span class="val">${d.speed}km/h</span></span>
+        ${d.altitude!=null?`<span>高度 <span class="val">${d.altitude.toFixed(0)}m</span></span>`:''}
       </div>
-      <div class="time">${formatTime(d.timestamp)}</div>
+      <div class="ts">${formatTime(d.timestamp)}</div>
     </div>`;
   }).join('');
 }
 
 function selectDevice(id) {
-  selectedId = id;
-  renderList();
-  showDetail(devices[id]);
-  if (markers[id]) map.setView(markers[id].getLatLng(), 15);
+  selectedId = id; renderDeviceList(); showDetail(devices[id]);
+  if (markers[id]) map.setView(markers[id].getLatLng(), 16);
 }
 
 function showDetail(d) {
-  const panel = document.getElementById('detailPanel');
-  const grid = document.getElementById('detailGrid');
-  panel.style.display = 'block';
-  const rows = [
-    ['端末ID', d.id],
-    ['緯度', d.lat.toFixed(6)],
-    ['経度', d.lon.toFixed(6)],
-    ['速度', d.speed + ' km/h'],
-    ['バッテリー', d.batt != null ? d.batt + '%' : '—'],
-    ['高度', d.altitude != null ? d.altitude.toFixed(1) + ' m' : '—'],
-    ['方位', d.bearing != null ? d.bearing.toFixed(0) + '°' : '—'],
-    ['精度', d.accuracy != null ? d.accuracy.toFixed(1) + ' m' : '—'],
-  ];
-  grid.innerHTML = rows.map(([k, v]) => `
-    <div class="detail-item">
-      <div class="detail-label">${k}</div>
-      <div class="detail-value">${v}</div>
-    </div>`).join('');
+  document.getElementById('detailPanel').style.display = 'block';
+  document.getElementById('detailGrid').innerHTML = [
+    ['端末ID',d.id],['緯度',d.lat.toFixed(6)],['経度',d.lon.toFixed(6)],
+    ['速度',d.speed+'km/h'],['バッテリー',d.batt!=null?d.batt+'%':'—'],
+    ['高度',d.altitude!=null?d.altitude.toFixed(1)+'m':'—'],
+    ['方位',d.bearing!=null?d.bearing.toFixed(0)+'°':'—'],
+    ['精度',d.accuracy!=null?d.accuracy.toFixed(1)+'m':'—'],
+  ].map(([k,v])=>`<div class="detail-item"><div class="detail-label">${k}</div><div class="detail-value">${v}</div></div>`).join('');
 }
 
 function updateMarker(d) {
@@ -202,45 +302,216 @@ function updateMarker(d) {
     markers[d.id].setLatLng(latlng);
     markers[d.id].getPopup().setContent(popupContent(d));
     if (polylines[d.id]) polylines[d.id].addLatLng(latlng);
-    // 選択中の端末なら地図を追従
-    if (selectedId === d.id || Object.keys(devices).length === 1) {
-      map.panTo(latlng);
-    }
+    if (selectedId === d.id || Object.keys(devices).length === 1) map.panTo(latlng);
   } else {
-    const icon = L.divIcon({
-      className: '',
-      html: `<div style="background:#4a90e2;border:3px solid #fff;border-radius:50%;width:18px;height:18px;box-shadow:0 2px 6px rgba(0,0,0,.5)"></div>`,
-      iconSize: [18, 18],
-      iconAnchor: [9, 9],
+    const icon = L.divIcon({ className:'', html:`<div style="background:#4a90e2;border:3px solid #fff;border-radius:50%;width:18px;height:18px;box-shadow:0 2px 6px rgba(0,0,0,.5)"></div>`, iconSize:[18,18], iconAnchor:[9,9] });
+    markers[d.id] = L.marker(latlng, {icon}).addTo(map).bindPopup(popupContent(d));
+    fetch(`/api/tracks/${encodeURIComponent(d.id)}`).then(r=>r.json()).then(pts=>{
+      polylines[d.id] = L.polyline(pts.length?pts:[latlng], {color:'#4a90e2',weight:3,opacity:.8}).addTo(map);
     });
-    markers[d.id] = L.marker(latlng, { icon })
-      .addTo(map)
-      .bindPopup(popupContent(d));
-    // 初回：サーバーから軌跡履歴を取得して描画
-    fetch(`/api/tracks/${encodeURIComponent(d.id)}`)
-      .then(r => r.json())
-      .then(pts => {
-        const allPts = pts.length ? pts : [latlng];
-        polylines[d.id] = L.polyline(allPts, {
-          color: '#4a90e2', weight: 3, opacity: 0.8
-        }).addTo(map);
-      });
-    map.setView(latlng, 15);
+    map.setView(latlng, 16);
   }
 }
 
-function popupContent(d) {
-  return `<b>${d.id}</b><br>速度: ${d.speed} km/h<br>電池: ${d.batt ?? '—'}%<br>${formatTime(d.timestamp)}`;
+function popupContent(d) { return `<b>${d.id}</b><br>速度: ${d.speed}km/h<br>電池: ${d.batt??'—'}%<br>${formatTime(d.timestamp)}`; }
+
+// ---- 受信ログ ----
+function addLog(d) {
+  logEntries.unshift(d);
+  if (logEntries.length > 200) logEntries.pop();
+  renderLog();
+}
+function renderLog() {
+  document.getElementById('logList').innerHTML = logEntries.map(d=>`
+    <div class="log-row" onclick="jumpToLog(${d.lat},${d.lon})">
+      <span class="log-time">${formatTime(d.timestamp)}</span>
+      <span><span class="log-coords">${d.lat.toFixed(5)}, ${d.lon.toFixed(5)}</span> <span class="log-speed">${d.speed}km/h</span></span>
+    </div>`).join('');
+}
+function jumpToLog(lat, lon) {
+  map.setView([lat,lon],16);
+  const m = L.circleMarker([lat,lon],{radius:14,color:'#ffc107',fillOpacity:0}).addTo(map);
+  setTimeout(()=>map.removeLayer(m),2000);
+}
+function clearLog() { logEntries.length=0; renderLog(); }
+
+// ---- ジオフェンス ----
+function startPicking() {
+  picking = true;
+  document.getElementById('pickBtn').textContent = '🗺 地図をタップして場所を選択中...';
+  document.getElementById('pickBtn').classList.add('picking');
+  map.getContainer().style.cursor = 'crosshair';
 }
 
-// 起動時に既存データを取得
-fetch('/api/devices').then(r => r.json()).then(list => list.forEach(updateDevice));
+map.on('click', e => {
+  if (!picking) return;
+  picking = false;
+  document.getElementById('pickBtn').textContent = '＋ 地図をタップして場所を選択';
+  document.getElementById('pickBtn').classList.remove('picking');
+  map.getContainer().style.cursor = '';
+  pendingLat = e.latlng.lat;
+  pendingLon = e.latlng.lng;
+  editingGfId = null;
+  openModal();
+});
 
-// SSE でリアルタイム受信（切断時は自動再接続）
+function openModal(gf) {
+  document.getElementById('gfModal').classList.remove('hidden');
+  if (gf) {
+    document.getElementById('modalTitle').textContent = 'ジオフェンスを編集';
+    document.getElementById('gfName').value = gf.name;
+    document.getElementById('gfRadius').value = gf.radius;
+    document.getElementById('radiusVal').textContent = gf.radius;
+    document.getElementById('gfCoordDisplay').textContent = `${gf.lat.toFixed(5)}, ${gf.lon.toFixed(5)}`;
+    setToggle('toggleEnter', gf.enterNotify);
+    setToggle('toggleExit', gf.exitNotify);
+    setToggle('toggleEnabled', gf.enabled);
+    pendingLat = gf.lat; pendingLon = gf.lon;
+    editingGfId = gf.id;
+  } else {
+    document.getElementById('modalTitle').textContent = 'ジオフェンスを追加';
+    document.getElementById('gfName').value = '';
+    document.getElementById('gfRadius').value = 100;
+    document.getElementById('radiusVal').textContent = '100';
+    document.getElementById('gfCoordDisplay').textContent = `${pendingLat.toFixed(5)}, ${pendingLon.toFixed(5)}`;
+    setToggle('toggleEnter', true);
+    setToggle('toggleExit', true);
+    setToggle('toggleEnabled', true);
+  }
+  // 仮マーカー
+  if (tempMarker) map.removeLayer(tempMarker);
+  tempMarker = L.marker([pendingLat, pendingLon]).addTo(map);
+}
+
+function closeModal() {
+  document.getElementById('gfModal').classList.add('hidden');
+  if (tempMarker) { map.removeLayer(tempMarker); tempMarker = null; }
+}
+
+function updateRadius() {
+  document.getElementById('radiusVal').textContent = document.getElementById('gfRadius').value;
+}
+
+function toggleSwitch(id) {
+  document.getElementById(id).classList.toggle('on');
+}
+function setToggle(id, val) {
+  const el = document.getElementById(id);
+  val ? el.classList.add('on') : el.classList.remove('on');
+}
+function getToggle(id) { return document.getElementById(id).classList.contains('on'); }
+
+async function saveGeofence() {
+  const name = document.getElementById('gfName').value.trim();
+  if (!name) { alert('名前を入力してください'); return; }
+  const body = {
+    name, lat: pendingLat, lon: pendingLon,
+    radius: parseInt(document.getElementById('gfRadius').value),
+    enterNotify: getToggle('toggleEnter'),
+    exitNotify: getToggle('toggleExit'),
+    enabled: getToggle('toggleEnabled'),
+  };
+  if (editingGfId) {
+    await fetch(`/api/geofences/${editingGfId}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+  } else {
+    await fetch('/api/geofences', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+  }
+  closeModal();
+}
+
+async function deleteGeofence(id) {
+  if (!confirm('削除しますか？')) return;
+  await fetch(`/api/geofences/${id}`, { method:'DELETE' });
+}
+
+async function toggleGeofence(id) {
+  const gf = gfData[id];
+  await fetch(`/api/geofences/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ enabled: !gf.enabled }) });
+}
+
+function applyGeofence(action, gf) {
+  if (action === 'delete') {
+    delete gfData[gf];
+    if (gfCircles[gf]) { map.removeLayer(gfCircles[gf]); delete gfCircles[gf]; }
+  } else {
+    gfData[gf.id] = gf;
+    if (gfCircles[gf.id]) map.removeLayer(gfCircles[gf.id]);
+    const color = gf.enabled ? '#4a90e2' : '#555';
+    gfCircles[gf.id] = L.circle([gf.lat, gf.lon], {
+      radius: gf.radius, color, fillColor: color, fillOpacity: 0.12, weight: 2,
+    }).addTo(map).bindPopup(`<b>${gf.name}</b><br>半径: ${gf.radius}m`);
+  }
+  renderGfList();
+}
+
+function renderGfList() {
+  const list = document.getElementById('gfList');
+  const gfs = Object.values(gfData);
+  if (!gfs.length) { list.innerHTML = '<div style="padding:30px 16px;text-align:center;color:#444;font-size:13px">ジオフェンスがありません</div>'; return; }
+  list.innerHTML = gfs.map(gf => `
+    <div class="gf-card">
+      <div class="gf-card-header">
+        <div class="gf-name">${gf.name}</div>
+        <div class="toggle ${gf.enabled?'on':''}" onclick="toggleGeofence('${gf.id}')"></div>
+      </div>
+      <div class="gf-meta">半径 ${gf.radius}m &nbsp;·&nbsp; ${gf.lat.toFixed(4)}, ${gf.lon.toFixed(4)}</div>
+      <div class="gf-card-header">
+        <div class="notify-badges">
+          <span class="nb ${gf.enterNotify?'enter':'off'}">入域</span>
+          <span class="nb ${gf.exitNotify?'exit':'off'}">出域</span>
+        </div>
+        <div class="gf-actions">
+          <button class="btn-icon" onclick="openModal(gfData['${gf.id}'])">編集</button>
+          <button class="btn-icon danger" onclick="deleteGeofence('${gf.id}')">削除</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+// ---- 通知 ----
+function addNotification(n) {
+  notifEntries.unshift(n);
+  if (notifEntries.length > 200) notifEntries.pop();
+  renderNotifList();
+  if (document.getElementById('tab-notifications').classList.contains('active')) return;
+  unreadNotif++;
+  updateBadge();
+  // ブラウザ通知
+  if (Notification.permission === 'granted') {
+    new Notification(n.type === 'enter' ? `📍 入域: ${n.geofenceName}` : `📍 出域: ${n.geofenceName}`, {
+      body: `端末: ${n.deviceId} | ${formatTime(n.timestamp)}`
+    });
+  }
+}
+
+function renderNotifList() {
+  const list = document.getElementById('notifList');
+  if (!notifEntries.length) { list.innerHTML = '<div style="padding:30px 16px;text-align:center;color:#444;font-size:13px">通知はありません</div>'; return; }
+  list.innerHTML = notifEntries.map(n=>`
+    <div class="notif-row">
+      <span class="notif-type ${n.type}">${n.type==='enter'?'▶ 入域':'◀ 出域'}</span>
+      <div class="notif-body"><b>${n.geofenceName}</b> &nbsp; ${n.deviceId}</div>
+      <div class="notif-time">${formatTime(n.timestamp)}</div>
+    </div>`).join('');
+}
+
+function clearNotifications() { notifEntries.length=0; renderNotifList(); unreadNotif=0; updateBadge(); }
+
+// ブラウザ通知許可を要求
+if (Notification.permission === 'default') Notification.requestPermission();
+
+// ---- 起動時データ取得 ----
+fetch('/api/devices').then(r=>r.json()).then(list=>list.forEach(updateDevice));
+fetch('/api/geofences').then(r=>r.json()).then(list=>list.forEach(gf=>applyGeofence('add',gf)));
+fetch('/api/notifications').then(r=>r.json()).then(list=>{ list.forEach(n=>notifEntries.push(n)); renderNotifList(); });
+
+// ---- SSE ----
 let es;
 function connectSSE() {
   es = new EventSource('/api/stream');
   es.onmessage = e => updateDevice(JSON.parse(e.data));
+  es.addEventListener('notification', e => addNotification(JSON.parse(e.data)));
+  es.addEventListener('geofence', e => { const d=JSON.parse(e.data); applyGeofence(d.action, d.action==='delete'?d.id:d.geofence); });
   es.onopen = () => {
     document.getElementById('statusDot').classList.add('active');
     document.getElementById('connStatus').textContent = '接続中';
@@ -250,8 +521,7 @@ function connectSSE() {
     document.getElementById('statusDot').classList.remove('active');
     document.getElementById('connStatus').textContent = '再接続中...';
     document.getElementById('connStatus').style.color = '#ffc107';
-    es.close();
-    setTimeout(connectSSE, 3000);
+    es.close(); setTimeout(connectSSE, 3000);
   };
 }
 connectSSE();

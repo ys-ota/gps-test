@@ -1,131 +1,170 @@
 const express = require('express');
 const path = require('path');
+const crypto = require('crypto');
 
 const app = express();
 const PORT = 3000;
 
-// 最新の位置情報を保持（端末IDごと）
 const devices = {};
-// 軌跡履歴（端末IDごと、最大1000点）
 const tracks = {};
-
-// SSEクライアント一覧
+const geofences = {}; // id -> geofence
+const geofenceStates = {}; // deviceId -> { geofenceId -> 'inside'|'outside' }
+const notifications = [];
 const sseClients = [];
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// GPS データ受信エンドポイント（POST JSON）
+function calcDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371000;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function checkGeofences(device) {
+    if (!geofenceStates[device.id]) geofenceStates[device.id] = {};
+    Object.values(geofences).forEach(gf => {
+        if (!gf.enabled) return;
+        const dist = calcDistance(device.lat, device.lon, gf.lat, gf.lon);
+        const inside = dist <= gf.radius;
+        const prev = geofenceStates[device.id][gf.id];
+
+        let type = null;
+        if (inside && prev !== 'inside') {
+            geofenceStates[device.id][gf.id] = 'inside';
+            if (gf.enterNotify && prev !== undefined) type = 'enter';
+        } else if (!inside && prev === 'inside') {
+            geofenceStates[device.id][gf.id] = 'outside';
+            if (gf.exitNotify) type = 'exit';
+        } else {
+            geofenceStates[device.id][gf.id] = inside ? 'inside' : 'outside';
+        }
+
+        if (type) {
+            const notif = {
+                id: crypto.randomUUID(),
+                type,
+                deviceId: device.id,
+                geofenceId: gf.id,
+                geofenceName: gf.name,
+                timestamp: new Date().toISOString(),
+            };
+            notifications.unshift(notif);
+            if (notifications.length > 200) notifications.pop();
+            const payload = `event: notification\ndata: ${JSON.stringify(notif)}\n\n`;
+            sseClients.forEach(c => { try { c.write(payload); } catch {} });
+            console.log(`[通知] ${type === 'enter' ? '入域' : '出域'} 端末:${device.id} ジオフェンス:${gf.name}`);
+        }
+    });
+}
+
+function processGPS(entry) {
+    devices[entry.id] = entry;
+    if (!tracks[entry.id]) tracks[entry.id] = [];
+    tracks[entry.id].push([entry.lat, entry.lon]);
+    if (tracks[entry.id].length > 1000) tracks[entry.id].shift();
+    console.log(`[${entry.timestamp}] 端末:${entry.id} | 緯度:${entry.lat} 経度:${entry.lon} | 速度:${entry.speed}km/h | 電池:${entry.batt}%`);
+    const payload = `data: ${JSON.stringify(entry)}\n\n`;
+    sseClients.forEach(c => { try { c.write(payload); } catch {} });
+    checkGeofences(entry);
+}
+
 app.post('/api/gps', (req, res) => {
     let id, lat, lon, speed, batt, altitude, bearing, accuracy;
-
-    // Traccar Client iOS形式: { location: { coords: {...}, battery: {...} }, device_id: "..." }
     if (req.body.location && req.body.device_id) {
         const loc = req.body.location;
         id = req.body.device_id;
         lat = loc.coords.latitude;
         lon = loc.coords.longitude;
-        speed = loc.coords.speed >= 0 ? loc.coords.speed * 3.6 : 0; // m/s → km/h
+        speed = loc.coords.speed >= 0 ? loc.coords.speed * 3.6 : 0;
         batt = loc.battery ? Math.round(loc.battery.level * 100) : null;
         altitude = loc.coords.altitude;
         bearing = loc.coords.heading >= 0 ? loc.coords.heading : null;
         accuracy = loc.coords.accuracy;
     } else {
-        // シンプルなフラット形式
         ({ id, lat, lon, speed, batt, altitude, bearing, accuracy } = req.body);
     }
-
-    if (!id || lat == null || lon == null) {
-        return res.status(400).send('Bad Request');
-    }
-
-    const entry = {
-        id,
-        lat: parseFloat(lat),
-        lon: parseFloat(lon),
-        speed: parseFloat(speed) || 0,
-        batt: batt != null ? parseInt(batt) : null,
+    if (!id || lat == null || lon == null) return res.status(400).send('Bad Request');
+    processGPS({
+        id, lat: parseFloat(lat), lon: parseFloat(lon),
+        speed: parseFloat(speed) || 0, batt: batt != null ? parseInt(batt) : null,
         altitude: parseFloat(altitude) || null,
         bearing: bearing != null ? parseFloat(bearing) : null,
         accuracy: parseFloat(accuracy) || null,
         timestamp: new Date().toISOString(),
-    };
-
-    devices[id] = entry;
-    if (!tracks[id]) tracks[id] = [];
-    tracks[id].push([entry.lat, entry.lon]);
-    if (tracks[id].length > 1000) tracks[id].shift();
-
-    console.log(`[${entry.timestamp}] 端末:${id} | 緯度:${lat} 経度:${lon} | 速度:${speed}km/h | 電池:${batt}%`);
-
-    // SSEで全クライアントに通知
-    const payload = `data: ${JSON.stringify(entry)}\n\n`;
-    sseClients.forEach(client => client.write(payload));
-
+    });
     res.status(200).send('OK');
 });
 
-// GET でも受け付ける（Traccarデフォルト形式）
 app.get('/api/gps', (req, res) => {
-    req.body = req.query;
-    // 同じ処理をリダイレクト
     const { id, lat, lon, speed, batt, altitude, bearing, accuracy } = req.query;
-
-    if (!id || lat == null || lon == null) {
-        return res.status(400).send('Bad Request');
-    }
-
-    const entry = {
-        id,
-        lat: parseFloat(lat),
-        lon: parseFloat(lon),
-        speed: parseFloat(speed) || 0,
-        batt: parseInt(batt) || null,
+    if (!id || lat == null || lon == null) return res.status(400).send('Bad Request');
+    processGPS({
+        id, lat: parseFloat(lat), lon: parseFloat(lon),
+        speed: parseFloat(speed) || 0, batt: parseInt(batt) || null,
         altitude: parseFloat(altitude) || null,
         bearing: parseFloat(bearing) || null,
         accuracy: parseFloat(accuracy) || null,
         timestamp: new Date().toISOString(),
-    };
-
-    devices[id] = entry;
-    if (!tracks[id]) tracks[id] = [];
-    tracks[id].push([entry.lat, entry.lon]);
-    if (tracks[id].length > 1000) tracks[id].shift();
-
-    console.log(`[${entry.timestamp}] 端末:${id} | 緯度:${lat} 経度:${lon} | 速度:${speed}km/h | 電池:${batt}%`);
-
-    const payload = `data: ${JSON.stringify(entry)}\n\n`;
-    sseClients.forEach(client => client.write(payload));
-
+    });
     res.status(200).send('OK');
 });
 
-// 現在の全端末情報を返す
-app.get('/api/devices', (req, res) => {
-    res.json(Object.values(devices));
+app.get('/api/devices', (req, res) => res.json(Object.values(devices)));
+app.get('/api/tracks/:id', (req, res) => res.json(tracks[req.params.id] || []));
+
+// ジオフェンス CRUD
+app.get('/api/geofences', (req, res) => res.json(Object.values(geofences)));
+
+app.post('/api/geofences', (req, res) => {
+    const { name, lat, lon, radius, enabled, enterNotify, exitNotify } = req.body;
+    if (!name || lat == null || lon == null) return res.status(400).send('Bad Request');
+    const gf = {
+        id: crypto.randomUUID(),
+        name, lat: parseFloat(lat), lon: parseFloat(lon),
+        radius: Math.min(200, Math.max(20, parseFloat(radius) || 100)),
+        enabled: enabled !== false,
+        enterNotify: enterNotify !== false,
+        exitNotify: exitNotify !== false,
+        createdAt: new Date().toISOString(),
+    };
+    geofences[gf.id] = gf;
+    const payload = `event: geofence\ndata: ${JSON.stringify({ action: 'add', geofence: gf })}\n\n`;
+    sseClients.forEach(c => { try { c.write(payload); } catch {} });
+    res.json(gf);
 });
 
-// 軌跡履歴を返す
-app.get('/api/tracks/:id', (req, res) => {
-    res.json(tracks[req.params.id] || []);
+app.put('/api/geofences/:id', (req, res) => {
+    const gf = geofences[req.params.id];
+    if (!gf) return res.status(404).send('Not Found');
+    Object.assign(gf, req.body);
+    const payload = `event: geofence\ndata: ${JSON.stringify({ action: 'update', geofence: gf })}\n\n`;
+    sseClients.forEach(c => { try { c.write(payload); } catch {} });
+    res.json(gf);
 });
 
-// SSE エンドポイント（リアルタイム更新）
+app.delete('/api/geofences/:id', (req, res) => {
+    if (!geofences[req.params.id]) return res.status(404).send('Not Found');
+    delete geofences[req.params.id];
+    const payload = `event: geofence\ndata: ${JSON.stringify({ action: 'delete', id: req.params.id })}\n\n`;
+    sseClients.forEach(c => { try { c.write(payload); } catch {} });
+    res.json({ ok: true });
+});
+
+app.get('/api/notifications', (req, res) => res.json(notifications));
+
 app.get('/api/stream', (req, res) => {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     res.flushHeaders();
-
     sseClients.push(res);
 
-    // 接続時に現在のデータを送信
-    Object.values(devices).forEach(d => {
-        res.write(`data: ${JSON.stringify(d)}\n\n`);
-    });
+    Object.values(devices).forEach(d => { try { res.write(`data: ${JSON.stringify(d)}\n\n`); } catch {} });
 
-    // 接続を維持するための定期ping
     const heartbeat = setInterval(() => {
         try { res.write(': ping\n\n'); } catch { clearInterval(heartbeat); }
     }, 15000);
