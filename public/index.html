@@ -8,7 +8,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f1117; color: #e0e0e0; height: 100vh; display: flex; flex-direction: column; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f1117; color: #e0e0e0; height: 100dvh; display: flex; flex-direction: column; }
 
 header { background: #1a1d27; padding: 10px 16px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #2d3045; flex-shrink: 0; }
 header h1 { font-size: 16px; font-weight: 600; color: #fff; }
@@ -19,9 +19,22 @@ header h1 { font-size: 16px; font-weight: 600; color: #fff; }
 #lastUpdate { margin-left: auto; font-size: 11px; color: #555; }
 
 .main { display: flex; flex: 1; overflow: hidden; }
-#map { flex: 1; }
+#map { flex: 1; min-height: 0; }
 
 .sidebar { width: 340px; background: #1a1d27; display: flex; flex-direction: column; border-left: 1px solid #2d3045; overflow: hidden; }
+
+/* モバイル: 上下レイアウト */
+@media (max-width: 640px) {
+  .main { flex-direction: column; }
+  #map { flex: 0 0 40dvh; }
+  .sidebar { width: 100%; flex: 1; min-height: 0; border-left: none; border-top: 1px solid #2d3045; }
+  .tab-content { min-height: 0; }
+  .tab-content.active { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
+  #deviceList { flex: 0 0 auto; max-height: 30dvh; overflow-y: auto; }
+  .log-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .log-list { flex: 1; min-height: 0; overflow-y: auto; }
+  .detail-panel { flex-shrink: 0; }
+}
 
 /* タブ */
 .tabs { display: flex; border-bottom: 1px solid #2d3045; flex-shrink: 0; }
