@@ -99,7 +99,7 @@ function processGPS(entry) {
 
 app.post('/api/gps', (req, res) => {
     console.log('[RAW POST]', JSON.stringify(req.body));
-    let id, lat, lon, speed, batt, altitude, bearing, accuracy;
+    let id, lat, lon, speed, batt, altitude, bearing, accuracy, isMoving, activity;
     if (req.body.location && req.body.device_id) {
         const loc = req.body.location;
         id = req.body.device_id;
@@ -109,8 +109,11 @@ app.post('/api/gps', (req, res) => {
         altitude = loc.coords.altitude;
         bearing = loc.coords.heading >= 0 ? loc.coords.heading : null;
         accuracy = loc.coords.accuracy;
+        isMoving = loc.is_moving != null ? loc.is_moving : null;
+        activity = loc.activity ? loc.activity.type : null;
     } else {
         ({ id, lat, lon, speed, batt, altitude, bearing, accuracy } = req.body);
+        isMoving = null; activity = null;
     }
     if (!id || lat == null || lon == null) return res.status(400).send('Bad Request');
     processGPS({
@@ -119,6 +122,7 @@ app.post('/api/gps', (req, res) => {
         altitude: parseFloat(altitude) || null,
         bearing: bearing != null ? parseFloat(bearing) : null,
         accuracy: parseFloat(accuracy) || null,
+        isMoving, activity,
         timestamp: new Date().toISOString(),
     });
     res.status(200).send('OK');

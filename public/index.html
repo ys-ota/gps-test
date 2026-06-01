@@ -307,6 +307,8 @@ function showDetail(d) {
     ['高度',d.altitude!=null?d.altitude.toFixed(1)+'m':'—'],
     ['方位',d.bearing!=null?d.bearing.toFixed(0)+'°':'—'],
     ['精度',d.accuracy!=null?d.accuracy.toFixed(1)+'m':'—'],
+    ['状態',d.isMoving!=null?(d.isMoving?'🟢 移動中':'🔴 静止'):'—'],
+    ['活動',d.activity||'—'],
   ].map(([k,v])=>`<div class="detail-item"><div class="detail-label">${k}</div><div class="detail-value">${v}</div></div>`).join('');
 }
 
@@ -341,7 +343,7 @@ function renderLog() {
   document.getElementById('logList').innerHTML = logEntries.map(d=>`
     <div class="log-row" onclick="jumpToLog(${d.lat},${d.lon})">
       <span class="log-time">${formatTime(d.timestamp)}</span>
-      <span><span class="log-coords">${d.lat.toFixed(5)}, ${d.lon.toFixed(5)}</span> <span class="log-speed">${parseFloat(d.speed).toFixed(1)}km/h</span></span>
+      <span><span class="log-coords">${d.lat.toFixed(5)}, ${d.lon.toFixed(5)}</span> <span class="log-speed">${parseFloat(d.speed).toFixed(1)}km/h</span>${d.isMoving!=null?` <span style="font-size:10px">${d.isMoving?'🟢':'🔴'}</span>`:''}</span>
     </div>`).join('');
 }
 function jumpToLog(lat, lon) {
