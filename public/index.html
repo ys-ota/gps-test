@@ -163,6 +163,7 @@ header h1 { font-size: 16px; font-weight: 600; color: #fff; }
       </div>
       <div class="log-panel">
         <div class="log-header">受信ログ <button class="btn-sm" onclick="clearLog()">クリア</button></div>
+        <div id="logFilter" style="padding:4px 10px;display:flex;flex-wrap:wrap;gap:4px;border-bottom:1px solid #2d3045"></div>
         <div class="log-list" id="logList"></div>
       </div>
     </div>
@@ -236,6 +237,7 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 const markers = {}, polylines = {}, devices = {};
 const gfCircles = {}, gfData = {};
 const logEntries = [];
+let logFilterId = 'all';
 const notifEntries = [];
 let selectedId = null;
 let picking = false;
@@ -347,10 +349,20 @@ function addLog(d) {
   if (logEntries.length && logEntries[0].timestamp === d.timestamp && logEntries[0].id === d.id) return;
   logEntries.unshift(d);
   if (logEntries.length > 200) logEntries.pop();
+  renderLogFilter();
   renderLog();
 }
+function renderLogFilter() {
+  const ids = ['all', ...Object.keys(devices)];
+  document.getElementById('logFilter').innerHTML = ids.map(id => {
+    const active = logFilterId === id;
+    return `<button onclick="setLogFilter('${id}')" style="font-size:11px;padding:2px 8px;border-radius:4px;border:1px solid ${active?'#4a90e2':'#333'};background:${active?'#4a90e2':'transparent'};color:${active?'#fff':'#888'};cursor:pointer">${id==='all'?'全て':id}</button>`;
+  }).join('');
+}
+function setLogFilter(id) { logFilterId = id; renderLogFilter(); renderLog(); }
 function renderLog() {
-  document.getElementById('logList').innerHTML = logEntries.map(d=>`
+  const filtered = logFilterId === 'all' ? logEntries : logEntries.filter(d => d.id === logFilterId);
+  document.getElementById('logList').innerHTML = filtered.map(d=>`
     <div class="log-row" onclick="jumpToLog(${d.lat},${d.lon})">
       <span class="log-time">${formatTime(d.timestamp)}</span>
       <span><span class="log-coords">${d.lat.toFixed(5)}, ${d.lon.toFixed(5)}</span> <span class="log-speed">${parseFloat(d.speed).toFixed(1)}km/h</span>${d.isMoving!=null?` <span style="font-size:10px">${d.isMoving?'🟢':'🔴'}</span>`:''}</span>
