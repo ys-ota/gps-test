@@ -286,7 +286,7 @@ function renderDeviceList() {
       <div class="device-meta">
         <span>緯度 <span class="val">${d.lat.toFixed(5)}</span></span>
         <span>経度 <span class="val">${d.lon.toFixed(5)}</span></span>
-        <span>速度 <span class="val">${d.speed}km/h</span></span>
+        <span>速度 <span class="val">${parseFloat(d.speed).toFixed(1)}km/h</span></span>
         ${d.altitude!=null?`<span>高度 <span class="val">${d.altitude.toFixed(0)}m</span></span>`:''}
       </div>
       <div class="ts">${formatTime(d.timestamp)}</div>
@@ -303,7 +303,7 @@ function showDetail(d) {
   document.getElementById('detailPanel').style.display = 'block';
   document.getElementById('detailGrid').innerHTML = [
     ['端末ID',d.id],['緯度',d.lat.toFixed(6)],['経度',d.lon.toFixed(6)],
-    ['速度',d.speed+'km/h'],['バッテリー',d.batt!=null?d.batt+'%':'—'],
+    ['速度',parseFloat(d.speed).toFixed(1)+'km/h'],['バッテリー',d.batt!=null?d.batt+'%':'—'],
     ['高度',d.altitude!=null?d.altitude.toFixed(1)+'m':'—'],
     ['方位',d.bearing!=null?d.bearing.toFixed(0)+'°':'—'],
     ['精度',d.accuracy!=null?d.accuracy.toFixed(1)+'m':'—'],
@@ -341,7 +341,7 @@ function renderLog() {
   document.getElementById('logList').innerHTML = logEntries.map(d=>`
     <div class="log-row" onclick="jumpToLog(${d.lat},${d.lon})">
       <span class="log-time">${formatTime(d.timestamp)}</span>
-      <span><span class="log-coords">${d.lat.toFixed(5)}, ${d.lon.toFixed(5)}</span> <span class="log-speed">${d.speed}km/h</span></span>
+      <span><span class="log-coords">${d.lat.toFixed(5)}, ${d.lon.toFixed(5)}</span> <span class="log-speed">${parseFloat(d.speed).toFixed(1)}km/h</span></span>
     </div>`).join('');
 }
 function jumpToLog(lat, lon) {
