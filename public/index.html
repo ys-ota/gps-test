@@ -155,7 +155,10 @@ header h1 { font-size: 16px; font-weight: 600; color: #fff; }
     <div class="tab-content active" id="content-devices">
       <div id="deviceList" style="overflow-y:auto;flex:1"><div id="no-data">まだデータがありません<br><br>アプリから送信すると<br>ここに表示されます</div></div>
       <div class="detail-panel" id="detailPanel" style="display:none">
-        <h3>詳細</h3>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <h3 style="margin:0">詳細</h3>
+          <button class="btn-sm" onclick="closeDetail()">✕ 閉じる</button>
+        </div>
         <div class="detail-grid" id="detailGrid"></div>
       </div>
       <div class="log-panel">
@@ -281,8 +284,10 @@ function renderDeviceList() {
   if (!ids.length) return;
   list.innerHTML = ids.map(id => {
     const d = devices[id];
+    const movingLabel = d.isMoving!=null ? (d.isMoving ? '🟢 移動中' : '🔴 静止') : '';
+    const actLabel = d.activity ? `<span style="font-size:11px;color:#888">${d.activity}</span>` : '';
     return `<div class="device-card${id===selectedId?' selected':''}" onclick="selectDevice('${id}')">
-      <div class="device-id">📱 ${d.id}${battBadge(d.batt)}</div>
+      <div class="device-id">📱 ${d.id}${battBadge(d.batt)} <span style="font-size:11px;font-weight:normal">${movingLabel}</span> ${actLabel}</div>
       <div class="device-meta">
         <span>緯度 <span class="val">${d.lat.toFixed(5)}</span></span>
         <span>経度 <span class="val">${d.lon.toFixed(5)}</span></span>
@@ -297,6 +302,11 @@ function renderDeviceList() {
 function selectDevice(id) {
   selectedId = id; renderDeviceList(); showDetail(devices[id]);
   if (markers[id]) map.setView(markers[id].getLatLng(), 16);
+}
+function closeDetail() {
+  selectedId = null;
+  document.getElementById('detailPanel').style.display = 'none';
+  renderDeviceList();
 }
 
 function showDetail(d) {
