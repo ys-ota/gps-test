@@ -100,7 +100,19 @@ function processGPS(entry) {
 app.post('/api/gps', (req, res) => {
     console.log('[RAW POST]', JSON.stringify(req.body));
     let id, lat, lon, speed, batt, altitude, bearing, accuracy, isMoving, activity;
-    if (req.body.location && req.body.device_id) {
+    if (req.body._type === 'location' && req.body.lat != null) {
+        // OwnTracks フォーマット
+        const b = req.body;
+        id = b.topic ? b.topic.split('/').pop() : (b.tid || 'owntracks');
+        lat = b.lat; lon = b.lon;
+        speed = b.vel != null ? b.vel : 0;
+        batt = b.batt != null ? b.batt : null;
+        altitude = b.alt != null ? b.alt : null;
+        bearing = b.cog != null ? b.cog : null;
+        accuracy = b.acc != null ? b.acc : null;
+        isMoving = b.motionactivities ? !b.motionactivities.includes('stationary') : null;
+        activity = b.motionactivities ? b.motionactivities[0] : null;
+    } else if (req.body.location && req.body.device_id) {
         const loc = req.body.location;
         id = req.body.device_id;
         lat = loc.coords.latitude; lon = loc.coords.longitude;
