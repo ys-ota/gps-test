@@ -98,6 +98,7 @@ function processGPS(entry) {
 }
 
 app.post('/api/gps', (req, res) => {
+    console.log('[RAW POST]', JSON.stringify(req.body));
     let id, lat, lon, speed, batt, altitude, bearing, accuracy;
     if (req.body.location && req.body.device_id) {
         const loc = req.body.location;
@@ -124,6 +125,7 @@ app.post('/api/gps', (req, res) => {
 });
 
 app.get('/api/gps', (req, res) => {
+    console.log('[RAW GET]', JSON.stringify(req.query));
     const { id, lat, lon, speed, batt, altitude, bearing, accuracy } = req.query;
     if (!id || lat == null || lon == null) return res.status(400).send('Bad Request');
     processGPS({
