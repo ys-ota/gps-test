@@ -31,6 +31,17 @@ const sseClients = [];
 // 軌跡を定期保存（2分ごと）
 setInterval(() => saveJSON(TRACKS_FILE, tracks), 2 * 60 * 1000);
 
+// 固定ジオフェンス（起動時に存在しなければ登録）
+const FIXED_GEOFENCES = [
+    { id: 'fixed-nenogami', name: '根の神', lat: 35.17085, lon: 137.03404, radius: 100, enabled: true, enterNotify: true, exitNotify: true },
+];
+FIXED_GEOFENCES.forEach(gf => {
+    if (!geofences[gf.id]) {
+        geofences[gf.id] = { ...gf, createdAt: new Date().toISOString() };
+        saveJSON(GEOFENCE_FILE, geofences);
+    }
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use((req, res, next) => {

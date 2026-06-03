@@ -140,6 +140,7 @@ header h1 { font-size: 16px; font-weight: 600; color: #fff; }
   <span id="connStatus" style="font-size:11px;color:#ffc107">接続中...</span>
   <span id="lastUpdate"></span>
   <button onclick="fetchAll()" style="margin-left:8px;background:#2d3045;border:none;color:#aaa;padding:4px 10px;border-radius:5px;font-size:12px;cursor:pointer">↺ 更新</button>
+  <button onclick="resetTracks()" style="margin-left:4px;background:#2d3045;border:none;color:#e57373;padding:4px 10px;border-radius:5px;font-size:12px;cursor:pointer">🗑 軌跡リセット</button>
 </header>
 
 <div class="main">
@@ -234,7 +235,13 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '© OpenStreetMap contributors'
 }).addTo(map);
 
-const markers = {}, polylines = {}, devices = {};
+const markers = {}, polylines = {}, devices = {}, arrowLayers = {};
+const DEVICE_COLORS = ['#4a90e2','#e25c4a','#4ae27a','#e2c14a','#c14ae2','#4ae2e2'];
+function deviceColor(id) {
+  const ids = Object.keys(devices);
+  const idx = ids.indexOf(id);
+  return DEVICE_COLORS[(idx < 0 ? ids.length : idx) % DEVICE_COLORS.length];
+}
 const gfCircles = {}, gfData = {};
 const logEntries = [];
 let logFilterId = 'all';
@@ -326,19 +333,49 @@ function showDetail(d) {
 
 function updateMarker(d) {
   const latlng = [d.lat, d.lon];
+  const color = deviceColor(d.id);
   if (markers[d.id]) {
     markers[d.id].setLatLng(latlng);
     markers[d.id].getPopup().setContent(popupContent(d));
-    if (polylines[d.id]) polylines[d.id].addLatLng(latlng);
+    markers[d.id].setIcon(makeIcon(color));
+    if (polylines[d.id]) {
+      const pts = polylines[d.id].getLatLngs();
+      const prev = pts[pts.length - 1];
+      polylines[d.id].addLatLng(latlng);
+      if (prev) addArrow(d.id, prev, latlng, color);
+    }
     if (selectedId === d.id || Object.keys(devices).length === 1) map.panTo(latlng);
   } else {
-    const icon = L.divIcon({ className:'', html:`<div style="background:#4a90e2;border:3px solid #fff;border-radius:50%;width:18px;height:18px;box-shadow:0 2px 6px rgba(0,0,0,.5)"></div>`, iconSize:[18,18], iconAnchor:[9,9] });
-    markers[d.id] = L.marker(latlng, {icon}).addTo(map).bindPopup(popupContent(d));
+    markers[d.id] = L.marker(latlng, {icon: makeIcon(color)}).addTo(map).bindPopup(popupContent(d));
     fetch(`/api/tracks/${encodeURIComponent(d.id)}`).then(r=>r.json()).then(pts=>{
-      polylines[d.id] = L.polyline(pts.length?pts:[latlng], {color:'#4a90e2',weight:3,opacity:.8}).addTo(map);
+      polylines[d.id] = L.polyline(pts.length?pts:[latlng], {color, weight:3, opacity:.8}).addTo(map);
+      arrowLayers[d.id] = [];
+      if (pts.length > 1) {
+        for (let i = 10; i < pts.length; i += 10) addArrow(d.id, pts[i-1], pts[i], color);
+      }
     });
     map.setView(latlng, 16);
   }
+}
+function makeIcon(color) {
+  return L.divIcon({ className:'', html:`<div style="background:${color};border:3px solid #fff;border-radius:50%;width:18px;height:18px;box-shadow:0 2px 6px rgba(0,0,0,.5)"></div>`, iconSize:[18,18], iconAnchor:[9,9] });
+}
+function addArrow(id, from, to, color) {
+  const f = Array.isArray(from) ? L.latLng(from[0], from[1]) : from;
+  const t = Array.isArray(to) ? L.latLng(to[0], to[1]) : to;
+  const angle = Math.atan2(t.lng - f.lng, t.lat - f.lat) * 180 / Math.PI;
+  const mid = L.latLng((f.lat+t.lat)/2, (f.lng+t.lng)/2);
+  const arrow = L.marker(mid, { icon: L.divIcon({
+    className:'', iconSize:[12,12], iconAnchor:[6,6],
+    html:`<div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:12px solid ${color};transform:rotate(${angle}deg);opacity:.8"></div>`
+  }), interactive:false }).addTo(map);
+  if (!arrowLayers[id]) arrowLayers[id] = [];
+  arrowLayers[id].push(arrow);
+}
+function resetTracks() {
+  if (!confirm('全端末の軌跡を地図上からクリアしますか？')) return;
+  Object.keys(polylines).forEach(id => { map.removeLayer(polylines[id]); delete polylines[id]; });
+  Object.keys(arrowLayers).forEach(id => { arrowLayers[id].forEach(a => map.removeLayer(a)); delete arrowLayers[id]; });
 }
 
 function popupContent(d) { return `<b>${d.id}</b><br>速度: ${d.speed}km/h<br>電池: ${d.batt??'—'}%<br>${formatTime(d.timestamp)}`; }
